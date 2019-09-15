@@ -1,0 +1,1 @@
+dotnet publish -f netcoreapp2.1 -r ubuntu.18.04-x64
