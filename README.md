@@ -6,7 +6,7 @@ For a detailed write-up, check out the [ Restaurant Inspections ETL & Data Enric
 
 ## Pre-requisites
 
-This project was built using Ubuntu 18.04 but should work on devices running 
+This project was built using Ubuntu 18.04 but should work on Windows and Mac devices.
 
 - .NET Core 2.1
 - Java 8
