@@ -2,6 +2,8 @@
 
 This sample takes a restaurant violation dataset from the NYC Open Data portal and process it using Spark.NET. Then, the processed data will be used to train a machine learning model that attempts to predict the grade an establishment will receive after an inspection. The model will be trained using ML.NET, an open-source, cross-platform machine learning framework. Finally, data for which no grade currently exists will be enriched using the trained model to assign an expected grade.
 
+For a detailed write-up, check out the [ Restaurant Inspections ETL & Data Enrichment with Spark.NET and ML.NET Automated (Auto) ML blog post](http://luisquintanilla.me/2019/09/15/restaurant-inspections-etl-data-enrichment-spark-auto-ml-net/).
+
 ## Pre-requisites
 
 This project was built using Ubuntu 18.04 but should work on devices running 
