@@ -32,6 +32,24 @@ This solution is made up of different .NET Core applications:
 git clone https://github.com/lqdev/RestaurantInspectionsSparkMLNET.git
 ```
 
+## Update solution locations
+
+Before building the code, update the location of the solution in the *RestaurantInspectionsTraining* and *RestaurantInspectionsEnrichment*.
+
+Replace the value of `solutionDirectory` with the path of where your solution is saved.
+
+Original:
+
+```csharp
+string solutionDirectory = "/home/lqdev/Development/RestaurantInspectionsSparkMLNET";
+```
+
+New:
+
+```csharp
+string solutionDirectory = "<YOUR-SOLUTION-PATH>/RestaurantInspectionsSparkMLNET";
+```
+
 ## Build
 
 ### RestaurantInspectionsETL
@@ -56,10 +74,10 @@ dotnet publish -f netcoreapp2.1 -r ubuntu.18.04-x64
 
 ### RestaurantInspectionsETL
 
-Navigate the the `publish` directory and run.
+From the project directory run the application with spark-submit.
 
 ```bash
-spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --master local microsoft-spark-2.4.x-0.4.0.jar dotnet RestaurantInspectionsETL.dll
+spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --master local bin/Debug/netcoreapp2.1/ubuntu.18.04-x64/publish/microsoft-spark-2.4.x-0.4.0.jar dotnet bin/Debug/netcoreapp2.1/ubuntu.18.04-x64/publish/RestaurantInspectionsETL.dll
 ```
 
 ### RestaurantInspectionsTraining
@@ -70,7 +88,9 @@ dotnet run
 
 ### RestaurantInspectionsEnrichment
 
-Navigate the the `publish` directory and run.
+Navigate to the *publish* directory. In this case, it's *bin/Debug/netcoreapp2.1/ubuntu.18.04-x64/publish*.
+
+From the *publish* directory, run the application with `spark-submit`.
 
 ```bash
 spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --master local microsoft-spark-2.4.x-0.4.0.jar dotnet RestaurantInspectionsEnrichment.dll
