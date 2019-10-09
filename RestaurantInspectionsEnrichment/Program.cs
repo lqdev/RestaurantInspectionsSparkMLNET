@@ -28,7 +28,7 @@ namespace RestaurantInspectionsEnrichment
                 Directory
                     .GetDirectories(dataLocation)
                     .Select(directory => new DirectoryInfo(directory))
-                    .OrderBy(directoryInfo => directoryInfo.Name)
+                    .OrderByDescending(directoryInfo => directoryInfo.Name)
                     .Select(directory => directory.FullName)
                     .First();
 
@@ -78,7 +78,7 @@ namespace RestaurantInspectionsEnrichment
                 Directory.CreateDirectory(enrichedOutputPath);
             }
 
-            enrichedDf.Write().Csv(savePath);
+            enrichedDf.Write().Mode(SaveMode.Overwrite).Csv(savePath);
 
         }
 

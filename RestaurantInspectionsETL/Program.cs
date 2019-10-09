@@ -100,9 +100,9 @@ namespace RestaurantInspectionsETL
                 Directory.CreateDirectory(saveDirectory);
             }
 
-            gradedDf.Write().Csv(Path.Join(saveDirectory,"Graded"));
+            gradedDf.Write()..Mode(SaveMode.Overwrite).Csv(Path.Join(saveDirectory,"Graded"));
 
-            ungradedDf.Write().Csv(Path.Join(saveDirectory,"Ungraded"));
+            ungradedDf.Write().Mode(SaveMode.Overwrite).Csv(Path.Join(saveDirectory,"Ungraded"));
         }
     }
 }
