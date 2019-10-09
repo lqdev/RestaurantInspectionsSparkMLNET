@@ -1,12 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.ML;
-using Microsoft.ML.Data;
 using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
-using System.Data.SqlClient;
 using RestaurantInspectionsML;
 
 namespace RestaurantInspectionsEnrichment
@@ -33,89 +30,52 @@ namespace RestaurantInspectionsEnrichment
 
         static void Main(string[] args)
         {
-            // Define source data directory paths
-            string solutionDirectory = "/home/lqdev/Development/RestaurantInspectionsSparkMLNET";
-            // string dataLocation = Path.Combine(solutionDirectory,"RestaurantInspectionsETL","Output");
-
-            // var latestOutput = 
-            //     Directory
-            //         .GetDirectories(dataLocation)
-            //         .Select(directory => new DirectoryInfo(directory))
-            //         .OrderByDescending(directoryInfo => directoryInfo.Name)
-            //         .Select(directory => directory.FullName)
-            //         .First();
-
+            // Initialize Spark Session
             var sc =
                 SparkSession
                     .Builder()
                     .AppName("Restaurant_Inspections_Enrichment")
                     .GetOrCreate();
 
-            // var schema = @"
-            //     INSPECTIONTYPE string,
-            //     CODES string,
-            //     CRITICALFLAG int,
-            //     INSPECTIONSCORE int,
-            //     GRADE string";
-
-            // DataFrame df = 
-            //     sc
-            //     .Read()
-            //     .Schema(schema)
-            //     .Csv(Path.Join(latestOutput,"Ungraded"));
-
-            DatabaseLoader loader = _mlContext.Data.CreateDatabaseLoader<DBInput>();
-            string sqlCommand = "SELECT * FROM UngradedInspections";
-            DatabaseSource dbSource = new DatabaseSource(SqlClientFactory.Instance, _config["connectionString"], sqlCommand);
-            IDataView dbData = loader.Load(dbSource);
-
-            IEnumerable<DBInput> dbDataEnumerable = _mlContext.Data.CreateEnumerable<DBInput>(dbData, reuseRowObject: true);
-
-            IEnumerable<ModelInput> modelData =
-                dbDataEnumerable
-                    .Select(dbInput =>
-                    {
-                        return new ModelInput
-                        {
-                            InspectionType = dbInput.InspectionType,
-                            Codes = dbInput.Codes,
-                            CriticalFlag = (float)dbInput.CriticalFlag,
-                            InspectionScore = (float)dbInput.Score,
-                            Grade = dbInput.Grade
-                        };
-                    });
-
-            IDataView data = _mlContext.Data.LoadFromEnumerable(modelData);
-
+            // Define JDBC options to read from
+            var readOptions = GetDbOptions("UngradedInspections"); 
+                
+            // Load the ungraded inspection data
+            DataFrame df = 
+                sc
+                .Read()
+                .Format("jdbc")
+                .Options(readOptions)
+                .Load();
+     
+            // Register UDF to make predictions using ML.NET model
             sc.Udf().Register<string, string, int, int, string>("PredictGrade", PredictGrade);
 
+            // Apply PredictGrade UDF
             var enrichedDf =
                 df
                 .Select(
                     Col("INSPECTIONTYPE"),
                     Col("CODES"),
                     Col("CRITICALFLAG"),
-                    Col("INSPECTIONSCORE"),
+                    Col("SCORE"),
                     CallUDF("PredictGrade",
                         Col("INSPECTIONTYPE"),
                         Col("CODES"),
                         Col("CRITICALFLAG"),
-                        Col("INSPECTIONSCORE")
+                        Col("SCORE")
                     ).Alias("PREDICTEDGRADE")
                 );
 
+            // Save Enriched Data
+            var writeOptions = GetDbOptions("EnrichedInspections");
 
-            string outputId = new DirectoryInfo(latestOutput).Name;
-            string enrichedOutputPath = Path.Join(solutionDirectory, "RestaurantInspectionsEnrichment", "Output");
-            string savePath = Path.Join(enrichedOutputPath, outputId);
-
-            if (!Directory.Exists(savePath))
-            {
-                Directory.CreateDirectory(enrichedOutputPath);
-            }
-
-            enrichedDf.Write().Mode(SaveMode.Overwrite).Csv(savePath);
-
+            enrichedDf
+                .Write()
+                .Format("jdbc")
+                .Mode(SaveMode.Overwrite)
+                .Options(writeOptions)
+                .Save();
         }
 
         public static string PredictGrade(
@@ -147,18 +107,5 @@ namespace RestaurantInspectionsEnrichment
                 {"password",_config["password"]}
             };
         }
-    }
-
-    class DBInput
-    {
-        public string InspectionType { get; set; }
-
-        public string Codes { get; set; }
-
-        public int CriticalFlag { get; set; }
-
-        public int Score { get; set; }
-
-        public string Grade { get; set; }
     }
 }

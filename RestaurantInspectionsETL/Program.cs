@@ -127,10 +127,6 @@ namespace RestaurantInspectionsETL
                 .Options(ungradedOptions)
                 .Mode(SaveMode.Overwrite)
                 .Save();
-
-            // gradedDf.Write().Mode(SaveMode.Overwrite).Csv(Path.Join(saveDirectory, "Graded"));
-
-            // ungradedDf.Write().Mode(SaveMode.Overwrite).Csv(Path.Join(saveDirectory, "Ungraded"));
         }
 
         static Dictionary<string, string> GetDbOptions(string query)

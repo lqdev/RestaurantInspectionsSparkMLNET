@@ -27,38 +27,18 @@ namespace RestaurantInspectionsTraining
         {
             // Define source data directory paths
             string solutionDirectory = "/home/lqdev/Development/RestaurantInspectionsSparkMLNET";
-            // string dataLocation = Path.Combine(solutionDirectory, "RestaurantInspectionsETL", "Output");
 
             // Initialize MLContext
             MLContext mlContext = new MLContext();
 
-            // Get directory name of most recent ETL output
-            // var latestOutput =
-            //     Directory
-            //         .GetDirectories(dataLocation)
-            //         .Select(directory => new DirectoryInfo(directory))
-            //         .OrderBy(directoryInfo => directoryInfo.Name)
-            //         .Select(directory => Path.Join(directory.FullName, "Graded"))
-            //         .First();
-
-            // var dataFilePaths =
-            //     Directory
-            //         .GetFiles(latestOutput)
-            //         .Where(file => file.EndsWith("csv"))
-            //         .ToArray();
-
-            // Load the data
-            // var dataLoader = mlContext.Data.CreateTextLoader<ModelInput>(separatorChar: ',', hasHeader: false, allowQuoting: true, trimWhitespace: true);
-            // IDataView data = dataLoader.Load(dataFilePaths);
-
-            // Load Data
+            // Load Data from database
             DatabaseLoader loader = mlContext.Data.CreateDatabaseLoader<DBInput>();
             string sqlCommand = "SELECT * FROM GradedInspections";
             DatabaseSource dbSource = new DatabaseSource(SqlClientFactory.Instance,_config["connectionString"],sqlCommand);
             IDataView dbData = loader.Load(dbSource);
 
+            // Map DTO to Entity
             IEnumerable<DBInput> dbDataEnumerable = mlContext.Data.CreateEnumerable<DBInput>(dbData,reuseRowObject:true);
-
             IEnumerable<ModelInput> modelData = 
                 dbDataEnumerable
                     .Select(dbInput => {
@@ -72,6 +52,7 @@ namespace RestaurantInspectionsTraining
                         };
                     });
 
+            // Load the data
             IDataView data = mlContext.Data.LoadFromEnumerable(modelData);
 
             // Split the data
