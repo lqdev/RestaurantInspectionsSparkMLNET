@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using Microsoft.Extensions.Configuration;
 using Microsoft.ML;
+using Microsoft.ML.Data;
 using static Microsoft.ML.DataOperationsCatalog;
 using Microsoft.ML.AutoML;
 using RestaurantInspectionsML;
@@ -10,36 +14,68 @@ namespace RestaurantInspectionsTraining
 {
     class Program
     {
+        private static readonly IConfiguration _config;
+
+        static Program()
+        {
+            _config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", true)
+                .Build();
+        }
         static void Main(string[] args)
         {
             // Define source data directory paths
             string solutionDirectory = "/home/lqdev/Development/RestaurantInspectionsSparkMLNET";
-            string dataLocation = Path.Combine(solutionDirectory,"RestaurantInspectionsETL","Output");
+            // string dataLocation = Path.Combine(solutionDirectory, "RestaurantInspectionsETL", "Output");
 
             // Initialize MLContext
             MLContext mlContext = new MLContext();
 
             // Get directory name of most recent ETL output
-            var latestOutput = 
-                Directory
-                    .GetDirectories(dataLocation)
-                    .Select(directory => new DirectoryInfo(directory))
-                    .OrderBy(directoryInfo => directoryInfo.Name)
-                    .Select(directory => Path.Join(directory.FullName,"Graded"))
-                    .First();
-            
-            var dataFilePaths = 
-                Directory
-                    .GetFiles(latestOutput)
-                    .Where(file => file.EndsWith("csv"))
-                    .ToArray();
+            // var latestOutput =
+            //     Directory
+            //         .GetDirectories(dataLocation)
+            //         .Select(directory => new DirectoryInfo(directory))
+            //         .OrderBy(directoryInfo => directoryInfo.Name)
+            //         .Select(directory => Path.Join(directory.FullName, "Graded"))
+            //         .First();
+
+            // var dataFilePaths =
+            //     Directory
+            //         .GetFiles(latestOutput)
+            //         .Where(file => file.EndsWith("csv"))
+            //         .ToArray();
 
             // Load the data
-            var dataLoader = mlContext.Data.CreateTextLoader<ModelInput>(separatorChar:',', hasHeader:false, allowQuoting:true, trimWhitespace:true);
-            IDataView data = dataLoader.Load(dataFilePaths);
+            // var dataLoader = mlContext.Data.CreateTextLoader<ModelInput>(separatorChar: ',', hasHeader: false, allowQuoting: true, trimWhitespace: true);
+            // IDataView data = dataLoader.Load(dataFilePaths);
+
+            // Load Data
+            DatabaseLoader loader = mlContext.Data.CreateDatabaseLoader<DBInput>();
+            string sqlCommand = "SELECT * FROM GradedInspections";
+            DatabaseSource dbSource = new DatabaseSource(SqlClientFactory.Instance,_config["connectionString"],sqlCommand);
+            IDataView dbData = loader.Load(dbSource);
+
+            IEnumerable<DBInput> dbDataEnumerable = mlContext.Data.CreateEnumerable<DBInput>(dbData,reuseRowObject:true);
+
+            IEnumerable<ModelInput> modelData = 
+                dbDataEnumerable
+                    .Select(dbInput => {
+                        return new ModelInput
+                        {
+                            InspectionType = dbInput.InspectionType,
+                            Codes=dbInput.Codes,
+                            CriticalFlag=(float)dbInput.CriticalFlag,
+                            InspectionScore = (float) dbInput.Score,
+                            Grade=dbInput.Grade
+                        };
+                    });
+
+            IDataView data = mlContext.Data.LoadFromEnumerable(modelData);
 
             // Split the data
-            TrainTestData dataSplit = mlContext.Data.TrainTestSplit(data,testFraction:0.2);
+            TrainTestData dataSplit = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
             IDataView trainData = dataSplit.TrainSet;
             IDataView testData = dataSplit.TestSet;
 
@@ -58,13 +94,36 @@ namespace RestaurantInspectionsTraining
             var bestModel = experimentResults.BestRun.Model;
 
             // Evaluate Model
-            IDataView scoredTestData = bestModel.Transform(testData);  
+            IDataView scoredTestData = bestModel.Transform(testData);
             var metrics = mlContext.MulticlassClassification.Evaluate(scoredTestData);
             Console.WriteLine($"MicroAccuracy: {metrics.MicroAccuracy}");
 
             // Save Model
-            string modelSavePath = Path.Join(solutionDirectory,"RestaurantInspectionsML","model.zip");
+            string modelSavePath = Path.Join(solutionDirectory, "RestaurantInspectionsML", "model.zip");
             mlContext.Model.Save(bestModel, data.Schema, modelSavePath);
         }
+        static Dictionary<string, string> GetDbOptions(string query)
+        {
+            return new Dictionary<string, string>()
+            {
+                {"url",_config["url"]},
+                {"dbtable",query},
+                {"username", _config["username"]},
+                {"password",_config["password"]}
+            };
+        }
+    }
+
+    class DBInput
+    {
+        public string InspectionType { get; set; }
+
+        public string Codes { get; set; }
+
+        public int CriticalFlag { get; set; }
+        
+        public int Score { get; set; }
+        
+        public string Grade { get; set; }
     }
 }
