@@ -9,15 +9,6 @@ namespace RestaurantInspectionsETL
 {
     class Program
     {
-        private static readonly IConfiguration _config;
-
-        static Program()
-        {
-            _config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", true)
-                .Build();
-        }
         static void Main(string[] args)
         {
             // Define columns to remove
@@ -57,7 +48,7 @@ namespace RestaurantInspectionsETL
                 .Read()
                 .Option("header", "true")
                 .Option("inferSchema", "true")
-                .Csv("Data/NYC-Restaurant-Inspections.csv");
+                .Csv(args[0]);
 
             //Remove columns and missing values
             DataFrame cleanDf =
@@ -111,33 +102,13 @@ namespace RestaurantInspectionsETL
                 Directory.CreateDirectory(saveDirectory);
             }
 
-            var gradedOptions = GetDbOptions("GradedInspections");
-            var ungradedOptions = GetDbOptions("UngradedInspections");
-
             gradedDf
                 .Write()
-                .Format("jdbc")
-                .Options(gradedOptions)
-                .Mode(SaveMode.Overwrite)
-                .Save();
+                .Csv(Path.Combine(saveDirectory,"Graded"));
 
             ungradedDf
                 .Write()
-                .Format("jdbc")
-                .Options(ungradedOptions)
-                .Mode(SaveMode.Overwrite)
-                .Save();
-        }
-
-        static Dictionary<string, string> GetDbOptions(string query)
-        {
-            return new Dictionary<string, string>()
-            {
-                {"url",_config["url"]},
-                {"dbtable",query},
-                {"username", _config["username"]},
-                {"password",_config["password"]}
-            };
+                .Csv(Path.Combine(saveDirectory,"Ungraded"));
         }
     }
 }
